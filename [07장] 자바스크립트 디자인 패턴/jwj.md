@@ -8,7 +8,7 @@
 
 ---
 
-# 7.1 생성 패턴
+# 생성 패턴
 
 - [생성자 패턴](#생성자-패턴)
 - [모듈 패턴](#모듈-패턴)
@@ -455,4 +455,536 @@ myAnimator.stop();
 
 자바스크립트에서는 인스턴스에 `.`으로 속성, 메서드를 추가하거나 부모의 클래스를 받아 기능을 확장하는 식으로 구현할 수 있다.
 
+## 의사 클래스 데코레이터
+
+데코레이터 패턴을 같은 인터페이스를 가지는 서로 다른 객체 내부에 새 객체를 넣어서 사용하는 방법으로 설명하는 방식이다.
+
+자바스크립트는 인터페이스를 지원하지 않기에 직접 구현하거나, 타입스크립트를 사용할 수 있다.
+
+> 자바스크립트에서의 인터페이스 구현: https://cryingnavi.github.io/javascript/2021/06/05/JS.html
+
+## 추상 데코레이터
+
+필요한 기본 메서드를 정의하고, 나머지 옵션은 서브클래스가 된다. 자바의 추상 클래스와 같은 방식이다.
+
+### 장점과 단점
+
+- 베이스 객체가 변경될 걱정없이 기능을 확장할 수 있고, 서브클래스에 의존하지도 않음.
+- 하지만, 네임 스페이스에 작고 비슷한 객체를 지속적으로 추가하기에, 잘 관리하지 않으면 애플리케이션의 구조가 복잡해질 수 있음.
+- 패턴에 익숙하지 않은 다른 개발자가 패턴의 사용 목적을 파악하기 어려울 수 있음. (문서화로 해결 가능)
+
 # 플라이웨이트 패턴
+
+반복되고 느리며 비효율적으로 데이터 공유가 이루어지는 코드를 최적화하기 위해 만들어졌다.
+
+연관된 객체끼리 데이터를 공유하게 하면서 애플리케이션의 메모리를 최소화하기 위한 패턴이다. **객체의 내부 상태와 외부 상태를 분리**하는 것이 패턴의 핵심이다.
+
+## 사용법
+
+데이터 레이어에서 메모리 저장된 비슷한 객체 사이로 데이터를 공유하는 방법이 있다. 또한 DOM을 사용할 때, 각각의 요소에 이벤트 핸들러를 붙이지 않고 부모 요소에 등록하는 방법이 이에 해당한다.
+
+- 내재적 상태: 객체의 내부 메서드에 필요한 것으로, 없으면 동작하지 않는 것을 의미한다. 같은 내재적 정보를 지닌 객체는 팩토리 메서드를 사용해 만들어진 하나의 공유된 객체로 대체할 수 있다.
+- 외재적 상태: 제거되어 외부에 저장될 수 있다. 이를 다룰 땐 관리자를 사용하여 데이터를 공유한다. 플라이웨이트 객체와 내재적 상태를 보관하는 중앙 DB를 관리자로 사용하는 방법이 있다.
+
+## 전통적인 플라이웨이트 구현 예제
+
+- 플라이웨이트: 외부의 상태를 받아 작동하게 하는 인터페이스
+- 구체적 플라이웨이트: 인터페이스를 실제로 구현하고 내부 상태를 저장한다. 다양한 컨텍스트 사이에서 공유할 수 있어야 하며, 외부 상태를 조작할 수 있어야 함
+- 플라이웨이트 팩토리: 플라이웨이트 객체를 생성하고 관리
+
+```js
+// CoffeeOrder 인터페이스
+const CoffeeOrder = {
+  serveCoffee(context) {},
+  getFlavor() {},
+};
+
+class CoffeeFlavor extends InterfaceImplementation {
+  constructor(newFlavor) {
+    super();
+    this.flavor = newFlavor;
+  }
+
+  getFlavor() {
+    return this.flavor;
+  }
+
+  serveCoffee(context) {
+    console.log(
+      `Serving Coffee flavor ${this.flavor} to table ${context.getTable()}`
+    ); // 커피 제공 로그
+  }
+}
+
+// CoffeeOrder 인터페이스 구현
+CoffeeFlavor.implementsFor(CoffeeOrder); // 자바의 implements에 해당
+
+const CoffeeOrderContext = (tableNumber) => ({
+  getTable() {
+    return tableNumber;
+  },
+});
+
+class CoffeeFlavorFactory {
+  constructor() {
+    this.flavors = {};
+    this.length = 0;
+  }
+
+  getCoffeeFlavor(flavorName) {
+    let flavor = this.flavors[flavorName];
+    if (!flavor) {
+      flavor = new CoffeeFlavor(flavorName);
+      this.flavors[flavorName] = flavor;
+      this.length++;
+    }
+    return flavor;
+  }
+
+  getTotalCoffeeFlavorsMade() {
+    return this.length;
+  }
+}
+
+// 사용 예시:
+const testFlyweight = () => {
+  const flavors = [];
+  const tables = [];
+  let ordersMade = 0;
+  const flavorFactory = new CoffeeFlavorFactory();
+
+  function takeOrder(flavorIn, table) {
+    flavors.push(flavorFactory.getCoffeeFlavor(flavorIn));
+    tables.push(new CoffeeOrderContext(table));
+    ordersMade++;
+  }
+
+  // 주문 처리
+  takeOrder("Cappuccino", 2);
+  // ...
+
+  // 주문 제공
+  for (let i = 0; i < ordersMade; ++i) {
+    flavors[i].serveCoffee(tables[i]);
+  }
+
+  console.log("-");
+  console.log(
+    `total CoffeeFlavor objects made: ${flavorFactory.getTotalCoffeeFlavorsMade()}`
+  );
+};
+
+testFlyweight();
+```
+
+## 플라이웨이트 패턴과 DOM 객체
+
+이벤트 버블링 과정을 조정하는 데 사용할 수 있다. 중첩된 요소의 부모 요소에 이벤트를 바인딩해 메모리를 절약한다.
+
+```html
+<div id="container">
+  <div class="toggle">
+    More Info (Address)
+    <span class="info"> This is more information </span>
+  </div>
+  <div class="toggle">
+    Even More Info (Map)
+    <span class="info">
+      <iframe src="MAPS_URL"></iframe>
+    </span>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const stateManager = {
+      fly() {
+        const self = this;
+        $("#container")
+          .off()
+          .on("click", "div.toggle", function () {
+            self.handleClick(this);
+          });
+      },
+      handleClick(elem) {
+        $(elem).find("span").toggle("slow");
+      },
+    };
+
+    // 이벤트 리스너 초기화
+    stateManager.fly();
+  })();
+</script>
+```
+
+# 행위 패턴
+
+- 관찰자 패턴
+- 중재자 패턴
+- 커맨드 패턴
+
+# 관찰자 패턴
+
+한 객체가 변경될 때 다른 객체들에 변경되었음을 알리는 패턴이다. 변경된 객체는 누가 자신을 구독하는지 알 필요 없이 알림을 보낼 수 있다.
+
+한 객체(주체)를 관찰하는 여러 객체들(관찰자)이 존재하고, 주체가 변경되면 관찰자들에게 자동으로 알림을 보낸다.
+
+리액트에서는 상태 변화를 컴포넌트에 알리기 위해 관찰자 패턴을 사용한다.
+
+주체가 `notify` 메서드를 실행하면, 구독 중인 모든 관찰자에 알림을 보내고, 관찰자 내부에서는 `update` 메서드가 실행된다.
+
+```js
+// 주체가 가질 수 있는 관찰자 목록
+class ObserverList {
+  constructor() {
+    this.observerList = [];
+  }
+
+  add(obj) {
+    return this.observerList.push(obj);
+  }
+
+  count() {
+    return this.observerList.length;
+  }
+
+  get(index) {
+    if (index > -1 && index < this.observerList.length) {
+      return this.observerList[index];
+    }
+  }
+
+  indexOf(obj, startIndex) {
+    let i = startIndex;
+    while (i < this.observerList.length) {
+      if (this.observerList[i] === obj) {
+        return i;
+      }
+      i++;
+    }
+    return -1;
+  }
+
+  removeAt(index) {
+    this.observerList.splice(index, 1);
+  }
+}
+
+class Subject {
+  constructor() {
+    this.observers = new ObserverList();
+  }
+
+  addObserver(observer) {
+    this.observers.add(observer);
+  }
+
+  removeObserver(observer) {
+    this.observers.removeAt(this.observers.indexOf(observer, 0));
+  }
+
+  notify(context) {
+    const observerCount = this.observers.count();
+    for (let i = 0; i < observerCount; i++) {
+      this.observers.get(i).update(context);
+    }
+  }
+}
+
+class Observer {
+  constructor() {}
+  update() { ... }
+}
+```
+
+## 관찰자 패턴과 발행/구독 패턴의 차이점
+
+실제 자바스크립트 환경에서는 발행/구독 패턴이라는 변형된 형태의 구현이 더 널리 사용된다. 그 이유는 ECMAScript 구현체는 본질적으로 이벤트 기반이기 때문이다. 관찰자 패턴보다 느슨한 결합을 가지는 것이 특징이다.
+
+관찰자 패턴에서는 관찰자 객체가 주체 객체에 알림 대상으로서 등록된다. 하지만, 발행/구독 패턴에서는 이벤트 구독자와 이벤트를 발생시키는 발행자 사이에 토픽/이벤트 채널을 둔다. 발행자와 구독자를 각자 독립적으로 유지시킨다. 이로써 애플리케이션에 특화된 이벤트를 정의할 수 있고, 구독자에게 필요한 값이 포함된 커스텀 인자를 전달할 수 있게 된다.
+
+발행자가 구독자의 메서드를 직접 호출하는 대신, 구독자는 특정 작업이나 활동을 구독하고 해당 작업이나 활동이 발생하면 알림을 받게 된다.
+
+```js
+<div class="messageSender"></div>
+<div class="messagePreview"></div>
+<div class="messageCounter"></div>
+
+// 간단한 발행/구독 패턴 구현
+const events = (function () {
+    const topics = {};
+    const hOP = topics.hasOwnProperty;
+
+    return {
+        subscribe: function (topic, listener) {
+            if (!hOP.call(topics, topic)) topics[topic] = [];
+
+            const index = topics[topic].push(listener) - 1;
+
+            return {
+                remove: function () {
+                    delete topics[topic][index];
+                },
+            };
+        },
+        publish: function (topic, info) {
+            if (!hOP.call(topics, topic)) return;
+
+            topics[topic].forEach(function (item) {
+                item(info !== undefined ? info : {});
+            });
+        }
+    };
+})();
+
+// 매우 간단한 새 메일 핸들러
+// 받은 메시지 수를 세는 카운터 변수
+let mailCounter = 0;
+
+// "inbox/newMessage" 라는 이름의 토픽을 구독하는 구독자를 초기화
+
+// 새 메시지의 미리보기를 렌더링
+const subscriber1 = events.subscribe('inbox/newMessage', (data) => {
+    // 디버깅을 위해 토픽을 출력
+    console.log('A new message was received:', data);
+
+    // 전달받은 데이터를 사용해 사용자에게 메시지 미리보기를 보여줌.
+    document.querySelector('.messageSender').innerHTML = data.sender;
+    document.querySelector('.messagePreview').innerHTML = data.body;
+});
+
+// 발행자를 통해 새 메시지를 표시하는 카운터 업데이트
+const subscriber2 = events.subscribe('inbox/newMessage', (data) => {
+    document.querySelector('.messageCounter').innerHTML = ++mailCounter;
+});
+
+events.publish('inbox/newMessage', {
+    sender: 'hello@google.com',
+    body: 'Hey there! How are you doing today?',
+});
+
+// 나중에 구독자가 새 토픽에 대한 알림을 받고 싶지 않으면
+// 다음과 같이 구독을 취소
+// subscriber1.remove();
+// subscriber2.remove();
+```
+
+### 장점과 단점
+
+- 애플리케이션의 요소들의 관계를 고민해보는 데 도움이 되고, 구성 요소들이 느슨하게 결합할 수 있도록 도와줌. 또한, 클래스를 강하게 결합시키지 않으면서 관련 객체들 사이의 일관성을 유지할 수 있음.
+- 하지만, 그로 인해 애플리케이션의 각 부분들이 제대로 동작하는 지 파악하기 어려울 수 있음. 또한, 구독자와 발행자의 관계가 동적으로 결졍되므로 의존 관계를 추적하기가 까다로울 수 있음.
+
+## 발행/구독 패턴 예제
+
+```js
+class PubSub {
+  constructor() {
+    // 알림을 보내거나 받을 수 있는 토픽을 저장
+    this.topics = {};
+    // 토픽 식별자
+    this.subUid = -1;
+  }
+
+  publish(topic, args) {
+    if (!this.topics[topic]) {
+      return false;
+    }
+
+    const subscribers = this.topics[topic];
+    let len = subscribers ? subscribers.length : 0;
+
+    while (len--) {
+      subscribers[len].func(topic, args);
+    }
+
+    return this;
+  }
+
+  subscribe(topic, func) {
+    if (!this.topics[topic]) {
+      this.topics[topic] = [];
+    }
+
+    const token = (++this.subUid).toString();
+    this.topics[topic].push({
+      token: token,
+      func: func,
+    });
+    return token;
+  }
+
+  unsubscribe(token) {
+    for (const m in this.topics) {
+      if (this.topics[m]) {
+        for (let i = 0, j = this.topics[m].length; i < j; i++) {
+          if (this.topics[m][i].token === token) {
+            this.topics[m].splice(i, 1);
+            return token;
+          }
+        }
+      }
+    }
+    return this;
+  }
+}
+
+const pubsub = new PubSub();
+
+pubsub.publish("/addFavorite", ["test"]);
+pubsub.subscribe("/addFavorite", (topic, args) => {
+  console.log("test", topic, args);
+});
+```
+
+# 중재자 패턴
+
+하나의 객체가 이벤트 발생 시 다른 여러 객체들에게 알림을 보낼 수 있는 패턴이다.
+
+관찰자 패턴이 하나의 객체가 다른 객체에서 발생하는 이벤트를 구독할 수 있도록 하는 반면, 이 패턴은 하나의 객체가 다른 객체에서 발생한 특정 유형의 이벤트에 대해 알림을 받을 수 있다.
+
+중재자 패턴에서 중재자는 **항공 교통 관제 시스템에서의 관제탑**으로 생각할 수 있다. 항공기의 모든 통신(이벤트)가 관제탑(중재자)을 거쳐 이루어지고, 항공기끼리는 직접 통신하지 않고 항공기의 이착륙이 관리된다.
+
+## 예제
+
+간단한 중재자는 한 줄의 코드로도 구현할 수 있다.
+
+```js
+const mediator = {};
+```
+
+의미적으로 봤을 때, 중재자는 객체 간의 워크플로우를 제어하는데, 이를 위해 객체 리터럴 이상의 복잡한 구조를 필요로 하지 않는다.
+
+아래는 이벤트를 발생시키고 구독할 수 있는 몇 가지 유틸리티 메서드를 가진 기본적인 중재자 객체의 구현이다. 이 예제는 '신규 직원 등록'이라는 워크플로우를 `orgChart`라는 중재자를 통해 처리한다.
+
+```js
+const orgChart = {
+  addNewEmployee() {
+    // getEmployeeDetail이 사용자가 상호작용하는 뷰를 제공
+    const employeeDetail = this.getEmployeeDetail();
+
+    // 직원 정보 입력이 완료되면,
+    // 중재자('orgchart' 객체)가 다음 행동을 결정
+    employeeDetail.on("complete", (employee) => {
+      // 추가할 이벤트를 가진 객체를 추가하고,
+      // 중재자가 추가적인 작업을 하도록 설정
+      const managerSelector = this.selectManager(employee);
+      managerSelector.on("save", (employee) => {
+        employee.save();
+      });
+    });
+  },
+
+  // ...
+};
+```
+
+이 과정에서 `employeeDetail` 객체는 `managerSelector` 객체의 존재를 전혀 알지 못합니다. 모든 흐름 제어와 객체 간의 상호작용은 오직 `orgChart` 중재자를 통해서만 이루어진다.
+
+## 중재자 패턴과 이벤트 집합(발행/구독) 패턴 비교
+
+둘 다 '이벤트'와 '서드 파티 객체'를 유사점으로 가진다.
+
+### 이벤트
+
+중재자 패턴은 자바스크립트에서 구현을 단순히 하기 위해 이벤트를 사용할 뿐, 반드시 이벤트를 다룰 필요는 없다. 이벤트 집합 패턴은 그 자체로 이벤트를 처리하기 위한 목적을 가지고 있다.
+
+### 서드 파티 객체
+
+객체 간 상호작용을 간소화하기 위해 모두 서드 파티 객체를 사용한다.
+
+이벤트 집합 패턴에서 서드 파티 객체(이벤트 채널)는 두 객체(소스와 핸들러) 사이에서 이벤트가 연결되도록 지원하는 역할만 수행한다.
+
+하지만, 중재자 패턴에서는 비즈니스 로직과 워크플로우가 중재자 내부에 집중된다. 중재자는 직접 각 객체의 메서드 호출 시점과 속성 업데이트의 필요성을 판단해 워크플로우와 프로세스를 캡슐화하고 여러 객체를 조율해 시스템을 동작시킨다.
+
+또, 이벤트 집합 패턴은 구독자가 존재하든, 존재하지 않든 이벤트를 발행시킨 후 처리를 위임한다. 반면 중재자 패턴은 미리 설정해 둔 특정 입력 또는 활동에 주목해 객체 사이의 행동을 직접 조율한다.
+
+## 이벤트 집합 패턴의 활용
+
+직접적인 구독 관계가 많아질 경우 또는 전혀 관련 없는 객체들 간의 소통이 필요할 때 사용한다.
+
+부모 뷰와 자식 뷰가 있다고 가정했을 때, 자식 뷰가 발생시킨 이벤트에 부모 뷰의 이벤트가 처리되는 경우, 이벤트 집합 패턴을 활용하면 이점이 있다.
+
+구체적인 예시: jQuery의 `on` 메서드, 리액트의 Context API
+
+## 중재자 패턴의 활용
+
+두 개 이상의 객체가 간접적인 관계를 가지고 있고 비즈니스 로직이나 워크플로우에 따라 상호작용 및 조정이 필요한 경우 유용하다.
+
+## 이벤트 집합 패턴 + 중재자 패턴
+
+```js
+const MenuItem = MyFrameworkView.extend({
+  events: {
+    "click .thatThing": "clickedIt",
+  },
+
+  clickedIt(e) {
+    e.preventDefault();
+
+    // "menu:click:foo"를 실행한다고 가정
+    MyFramework.trigger("menu:click:foo", { name: this.model.get("name") });
+  },
+});
+
+// 애플리케이션의 다른 곳에서 구현
+class MyWorkflow {
+  constructor() {
+    MyFramework.on("menu:click:foo", this.doStuff, this);
+  }
+
+  static doStuff() {
+    // 이곳에 여러 객체를 인스턴스화
+    // 객체의 이벤트 핸들러 설정
+    // 모든 객체를 의미 있는 워크플로로 조정
+  }
+}
+```
+
+이벤트 집합 패턴: 전역적인 알림을 담당한다. `MenuItem` 같은 컴포넌트는 자신의 구체적인 행동(`'menu:click:foo'` 이벤트 발행)이 어떤 결과를 낳을지 전혀 알 필요가 없다. 그저 시스템 전체에 "메뉴가 클릭되었다"고 알리기만 한다.
+
+중재자 패턴: 복잡한 워크플로우를 관리한다. `MyWorkflow` 같은 중재자 객체는 특정 전역 이벤트를 구독하고 있다가, 해당 이벤트가 발생하면 여러 객체 간의 상호작용을 순서대로 지휘하고 조정하는 복잡한 작업을 처리한다.
+
+# 커맨드 패턴
+
+메서드 호출, 요청 또는 작업을 단일 객체로 캡슐화하여 추후에 실행할 수 있도록 해주는 패턴이다. 명령을 실행하는 객체와 명령을 호출하는 객체 간의 결합을 느슨하게 해 구체적인 클래스(객체)의 변경에 대한 유연성을 향상시킨다.
+
+명령을 내리는 객체와 명령을 실행하는 객체의 책임을 분리하는 것이 핵심이다.
+
+## 예제
+
+'실행할 동작'과 '해당 동작을 호출할 객체'를 연결하여 구현한다. 실행을 위한 동작(`run()` 또는 `execute()`)를 포함한다.
+
+```js
+const CarManager = {
+  // 정보 조회
+  requestInfo(model, id) {
+    return `The information for ${model} with ID ${id} is foobar`;
+  },
+
+  // 자동차 구매
+  buyVehicle(model, id) {
+    return `You have successfully purchased Item ${id}, a ${model}`;
+  },
+
+  // 시승 신청
+  arrangeViewing(model, id) {
+    return `You have booked a viewing of ${model} ( ${id} )`;
+  },
+};
+```
+
+`CarManager` 객체는 각종 명령을 실행하는 커맨드 객체다. 객체 내부의 핵심 API가 변경되면, 메서드를 직접 호출하는 애플리케이션 내 모든 객체를 수정해야 하므로 `CarManager`와 이를 사용하는 클라이언트 코드들 간의 강한 결합이 있다. 이 문제는 API를 추상화함으로써 해결할 수 있다.
+
+```js
+carManager.execute = function (name) {
+  // name = 'buyVehicle'
+  return (
+    carManager[name] &&
+    carManager[name].apply(carManager, [].slice.call(arguments, 1))
+  );
+};
+
+carManager.excute("buyVehicle", "Ferrari", "14523");
+```
+
+객체를 확장하여 실행할 수 있는 메서드의 이름과 데이터를 매개변수로 받아 처리하는 구조로 개선했다.
